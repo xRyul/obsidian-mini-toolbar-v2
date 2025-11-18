@@ -54,6 +54,23 @@ export const NOTION_TEXT_COLOR_NAMES: string[] = [
   ...Object.keys(NOTION_TEXT_COLOR_MAP),
 ];
 
+// Notion-like highlight background palette (approximate)
+export const NOTION_BG_COLOR_MAP: Record<string, string> = {
+  Gray: "#EAEAEA",
+  Brown: "#EEE0DA",
+  Orange: "#FAEBDD",
+  Yellow: "#FBF3DB",
+  Green: "#DDEDEA",
+  Blue: "#DDEBF1",
+  Purple: "#EAE4F2",
+  Pink: "#F4DFEB",
+  Red: "#FBE4E4",
+};
+export const NOTION_BG_COLOR_NAMES: string[] = [
+  "Default",
+  ...Object.keys(NOTION_BG_COLOR_MAP),
+];
+
 // Apply or remove text color by wrapping selection in a span with inline style.
 // If the current selection is already wrapped by <span style="color:...">, clicking the same color toggles it off.
 export const setTextColor = (state: EditorState, colorHex: string | null) => {
@@ -83,17 +100,52 @@ export const setTextColor = (state: EditorState, colorHex: string | null) => {
       editor.replaceSelection(inner);
     } else {
       // Replace color
-      editor.replaceSelection(`<span style="color:${colorHex}">${inner}</span>`);
+      editor.replaceSelection(`<span style=\"color:${colorHex}\">${inner}</span>`);
     }
     return;
   }
 
   // Otherwise, wrap selection
-  editor.replaceSelection(`<span style="color:${colorHex}">${sel}</span>`);
+  editor.replaceSelection(`<span style=\"color:${colorHex}\">${sel}</span>`);
 };
 
 export const setTextColorByName = (state: EditorState, name: string) => {
   if (name === "Default") return setTextColor(state, null);
   const hex = NOTION_TEXT_COLOR_MAP[name];
   if (hex) setTextColor(state, hex);
+};
+
+// Apply or remove background highlight using <mark style="background-color:..."></mark>
+export const setBgColor = (state: EditorState, colorHex: string | null) => {
+  const editor = getEditorFromState(state);
+  if (!editor) return;
+  const sel = editor.getSelection();
+  if (!sel) return;
+
+  const markRegex = /^<(?:mark|span)\s+style=["']background-color:\s*([^"';]+)["']>([\s\S]*)<\/(?:mark|span)>$/i;
+  const match = sel.match(markRegex);
+
+  if (colorHex === null) {
+    if (match) editor.replaceSelection(match[2]);
+    return;
+  }
+
+  if (match) {
+    const currentColor = match[1].trim();
+    const inner = match[2];
+    if (currentColor.toLowerCase() === colorHex.toLowerCase()) {
+      editor.replaceSelection(inner);
+    } else {
+      editor.replaceSelection(`<mark style=\"background-color:${colorHex}\">${inner}</mark>`);
+    }
+    return;
+  }
+
+  editor.replaceSelection(`<mark style=\"background-color:${colorHex}\">${sel}</mark>`);
+};
+
+export const setBgColorByName = (state: EditorState, name: string) => {
+  if (name === "Default") return setBgColor(state, null);
+  const varName = `var(--mtv2-bg-${name.toLowerCase()})`;
+  setBgColor(state, varName);
 };

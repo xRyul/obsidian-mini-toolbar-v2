@@ -32,6 +32,9 @@ import {
   NOTION_TEXT_COLOR_NAMES,
   setTextColorByName,
   NOTION_TEXT_COLOR_MAP,
+  NOTION_BG_COLOR_NAMES,
+  NOTION_BG_COLOR_MAP,
+  setBgColorByName,
 } from "./defaultCommand";
 
 const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
@@ -66,6 +69,7 @@ const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
           .setTooltip("Text color")
           .setOptionsList(NOTION_TEXT_COLOR_NAMES)
           .setOnSelectOption((name) => setTextColorByName(state, name))
+          .setOnSelectBgOption((name) => setBgColorByName(state, name))
           // onClick is required to attach the dropdown handler
           .onClick(() => {}),
       );
@@ -109,6 +113,7 @@ class SmallButton extends BaseComponent implements SBtnDef {
   disabled = false;
   dropdownOptions: string[] = [];
   onSelectOption: ((title: string) => void) | null = null;
+  onSelectBgOption: ((title: string) => void) | null = null;
   menu: Menu | undefined;
   menuOpened = false;
 
@@ -228,6 +233,11 @@ class SmallButton extends BaseComponent implements SBtnDef {
     return this;
   }
 
+  setOnSelectBgOption(handler: (title: string) => void): this {
+    this.onSelectBgOption = handler;
+    return this;
+  }
+
   onClick(cb: (evt: MouseEvent) => void): this {
     if (this.dropdownOptions.length > 0) {
       this.button.onClick((evt) => this.showEditMenu(evt));
@@ -265,18 +275,21 @@ class SmallButton extends BaseComponent implements SBtnDef {
       x: currentTargetRect.left - 6,
       y: currentTargetRect.bottom + 6,
     };
+    // Text color items
     for (let a = 0; a < this.dropdownOptions?.length; a++) {
       const name = this.dropdownOptions[a];
-      const colorHex = name === "Default" ? "var(--text-normal)" : NOTION_TEXT_COLOR_MAP[name as keyof typeof NOTION_TEXT_COLOR_MAP];
+      const colorHex =
+        name === "Default"
+          ? "var(--text-normal)"
+          : NOTION_TEXT_COLOR_MAP[name as keyof typeof NOTION_TEXT_COLOR_MAP];
       this.menu.addItem((item) => {
-        // Visual "A" swatch colored accordingly
         item.setTitle("A").onClick(() => {
           this.onSelectOption?.(name);
         });
-        // Tooltip text like "Grey text"
         const tooltip = name === "Default" ? "Default" : `${name} text`;
         const itemEl = (item as any).dom as HTMLElement | undefined;
         itemEl?.setAttr?.("title", tooltip);
+        itemEl?.setAttr?.("data-color-kind", "text");
         itemEl?.addClass?.("mini-toolbar-v2-color-item");
         const titleEl = itemEl?.querySelector?.(
           ".menu-item-title",
@@ -286,6 +299,38 @@ class SmallButton extends BaseComponent implements SBtnDef {
         }
       });
     }
+
+    // Visual separator between sections
+    this.menu.addSeparator();
+
+    // Background highlight items
+    for (let b = 0; b < NOTION_BG_COLOR_NAMES.length; b++) {
+      const name = NOTION_BG_COLOR_NAMES[b];
+      const colorValue = name === "Default" ? "transparent" : `var(--mtv2-bg-${name.toLowerCase()})`;
+      this.menu.addItem((item) => {
+        item.setTitle("A").onClick(() => {
+          this.onSelectBgOption?.(name);
+        });
+        const tooltip = name === "Default" ? "Default background" : `${name} background`;
+        const itemEl = (item as any).dom as HTMLElement | undefined;
+        itemEl?.setAttr?.("title", tooltip);
+        itemEl?.setAttr?.("data-color-kind", "background");
+        itemEl?.addClass?.("mini-toolbar-v2-color-item");
+        const titleEl = itemEl?.querySelector?.(
+          ".menu-item-title",
+        ) as HTMLElement | undefined;
+        if (titleEl) {
+          if (colorValue === "transparent") {
+            titleEl.style.removeProperty("background-color");
+          } else {
+            titleEl.style.backgroundColor = colorValue as any;
+          }
+          // Keep text legible against light/dark tints
+          titleEl.style.color = `var(--text-normal)`;
+        }
+      });
+    }
+
     this.menu.setParentElement(sortButton).showAtPosition(menuShowPoint);
 
     // Decorate once DOM is fully built
@@ -296,19 +341,45 @@ class SmallButton extends BaseComponent implements SBtnDef {
         (menuEl.querySelector(".menu-scroller") as HTMLElement | null) ||
         (menuEl.querySelector(".menu-scroll") as HTMLElement | null) ||
         menuEl;
-      const groupEl =
-        (scrollerEl.querySelector(".menu-group") as HTMLElement | null) ||
-        (scrollerEl.querySelector(".menu-items") as HTMLElement | null) ||
-        (scrollerEl.querySelector(".menu-content") as HTMLElement | null);
-      if (!groupEl) return;
 
-      const headerEl = scrollerEl.createDiv({
-        cls: "mini-toolbar-v2-color-header",
-        text: "Text colour",
-      });
-      scrollerEl.insertBefore(headerEl, groupEl);
-      // @ts-ignore - addClass exists on Obsidian elements
-      groupEl.addClass?.("mini-toolbar-v2-color-grid");
+      // Try to split items into two groups (text/background)
+      let groups = Array.from(scrollerEl.querySelectorAll<HTMLElement>(".menu-group"));
+
+      if (groups.length === 1) {
+        // Create a second group and move background items into it
+        const bgGroup = scrollerEl.createDiv({ cls: "menu-group" });
+        const allItems = Array.from(groups[0].querySelectorAll<HTMLElement>(".menu-item"));
+        for (const it of allItems) {
+          const kind = (it as any).getAttr?.("data-color-kind") ?? it.getAttribute("data-color-kind");
+          if (kind === "background") {
+            bgGroup.appendChild(it);
+          }
+        }
+        // Insert bg group after original
+        groups[0].insertAdjacentElement("afterend", bgGroup);
+        groups = [groups[0], bgGroup];
+      }
+
+      const [textGroup, bgGroup] = groups.length >= 2 ? groups : [groups[0], undefined as any];
+
+      if (textGroup) {
+        const textHeader = scrollerEl.createDiv({
+          cls: "mini-toolbar-v2-color-header",
+          text: "Text colour",
+        });
+        scrollerEl.insertBefore(textHeader, textGroup);
+        // @ts-ignore
+        textGroup.addClass?.("mini-toolbar-v2-color-grid");
+      }
+      if (bgGroup) {
+        const bgHeader = scrollerEl.createDiv({
+          cls: "mini-toolbar-v2-color-header",
+          text: "Background",
+        });
+        scrollerEl.insertBefore(bgHeader, bgGroup);
+        // @ts-ignore
+        bgGroup.addClass?.("mini-toolbar-v2-color-grid");
+      }
     });
   }
 
