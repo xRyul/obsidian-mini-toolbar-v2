@@ -29,6 +29,9 @@ import {
   italicText,
   markText,
   strikethroughText,
+  NOTION_TEXT_COLOR_NAMES,
+  setTextColorByName,
+  NOTION_TEXT_COLOR_MAP,
 } from "./defaultCommand";
 
 const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
@@ -55,6 +58,16 @@ const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
       )
       .addSmallButton((btn) =>
         btn.setIcon("strikethrough").onClick(() => strikethroughText(app)),
+      )
+      // Text color dropdown (Notion-like colors)
+      .addSmallButton((btn) =>
+        btn
+          .setDropdownIcon("palette")
+          .setTooltip("Text color")
+          .setOptionsList(NOTION_TEXT_COLOR_NAMES)
+          .setOnSelectOption((name) => setTextColorByName(state, name))
+          // onClick is required to attach the dropdown handler
+          .onClick(() => {}),
       );
 
     if (isMultiLineSelection) {
@@ -95,6 +108,7 @@ class SmallButton extends BaseComponent implements SBtnDef {
   button: ButtonComponent;
   disabled = false;
   dropdownOptions: string[] = [];
+  onSelectOption: ((title: string) => void) | null = null;
   menu: Menu | undefined;
   menuOpened = false;
 
@@ -155,14 +169,14 @@ class SmallButton extends BaseComponent implements SBtnDef {
     return this;
   }
 
-  setDropdownIcon(): this {
+  setDropdownIcon(iconId: string = "highlighter"): this {
     const highlightIconDiv = this.button.buttonEl.createDiv(
       "mini-toolbar-v2-highlight-icon",
     );
     const iconDiv = this.button.buttonEl.createDiv(
       "mini-toolbar-v2-icon-with-icon",
     );
-    setIcon(highlightIconDiv, "highlighter");
+    setIcon(highlightIconDiv, iconId);
     setIcon(iconDiv, "chevron-down");
 
     return this;
@@ -209,6 +223,11 @@ class SmallButton extends BaseComponent implements SBtnDef {
     return this;
   }
 
+  setOnSelectOption(handler: (title: string) => void): this {
+    this.onSelectOption = handler;
+    return this;
+  }
+
   onClick(cb: (evt: MouseEvent) => void): this {
     if (this.dropdownOptions.length > 0) {
       this.button.onClick((evt) => this.showEditMenu(evt));
@@ -231,6 +250,13 @@ class SmallButton extends BaseComponent implements SBtnDef {
       this.menuOpened = false;
     });
 
+    // Customize menu DOM to mimic Notion color picker
+    const menuEl = (this.menu as any).dom as HTMLElement | undefined;
+    if (menuEl) {
+      (menuEl as any).addClass?.("mini-toolbar-v2-color-menu");
+      // Defer grid/header decoration until after items are rendered
+    }
+
     const sortButton = event.currentTarget;
     const currentTargetRect = (
       event.currentTarget as HTMLElement
@@ -240,16 +266,50 @@ class SmallButton extends BaseComponent implements SBtnDef {
       y: currentTargetRect.bottom + 6,
     };
     for (let a = 0; a < this.dropdownOptions?.length; a++) {
+      const name = this.dropdownOptions[a];
+      const colorHex = name === "Default" ? "var(--text-normal)" : NOTION_TEXT_COLOR_MAP[name as keyof typeof NOTION_TEXT_COLOR_MAP];
       this.menu.addItem((item) => {
-        item
-          .setIcon("zap")
-          .setTitle(this.dropdownOptions[a])
-          .onClick(() => {
-            console.log("Hellow");
-          });
+        // Visual "A" swatch colored accordingly
+        item.setTitle("A").onClick(() => {
+          this.onSelectOption?.(name);
+        });
+        // Tooltip text like "Grey text"
+        const tooltip = name === "Default" ? "Default" : `${name} text`;
+        const itemEl = (item as any).dom as HTMLElement | undefined;
+        itemEl?.setAttr?.("title", tooltip);
+        itemEl?.addClass?.("mini-toolbar-v2-color-item");
+        const titleEl = itemEl?.querySelector?.(
+          ".menu-item-title",
+        ) as HTMLElement | undefined;
+        if (titleEl) {
+          titleEl.style.color = `${colorHex}`;
+        }
       });
     }
     this.menu.setParentElement(sortButton).showAtPosition(menuShowPoint);
+
+    // Decorate once DOM is fully built
+    requestAnimationFrame(() => {
+      const menuEl = (this.menu as any)?.dom as HTMLElement | undefined;
+      if (!menuEl) return;
+      const scrollerEl =
+        (menuEl.querySelector(".menu-scroller") as HTMLElement | null) ||
+        (menuEl.querySelector(".menu-scroll") as HTMLElement | null) ||
+        menuEl;
+      const groupEl =
+        (scrollerEl.querySelector(".menu-group") as HTMLElement | null) ||
+        (scrollerEl.querySelector(".menu-items") as HTMLElement | null) ||
+        (scrollerEl.querySelector(".menu-content") as HTMLElement | null);
+      if (!groupEl) return;
+
+      const headerEl = scrollerEl.createDiv({
+        cls: "mini-toolbar-v2-color-header",
+        text: "Text colour",
+      });
+      scrollerEl.insertBefore(headerEl, groupEl);
+      // @ts-ignore - addClass exists on Obsidian elements
+      groupEl.addClass?.("mini-toolbar-v2-color-grid");
+    });
   }
 
   then(cb: (component: this) => any): this {
