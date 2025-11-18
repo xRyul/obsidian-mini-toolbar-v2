@@ -1,5 +1,8 @@
 import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { App, editorInfoField } from "obsidian";
+
+import { setBgColorEffect, setTextColorEffect } from "./colorRanges";
 
 export const cutText = (state: EditorState) => {
   const editor = getEditorFromState(state);
@@ -34,6 +37,22 @@ export const italicText = (app: App) => {
 export const getEditorFromState = (state: EditorState) => {
   const { editor } = state.field(editorInfoField);
   return editor;
+};
+
+const getViewFromState = (state: EditorState): EditorView | null => {
+  try {
+    // editorInfoField gives us the MarkdownView; from there we can grab the
+    // underlying CM6 EditorView via the internal `cm`/`cmEditor` property.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mdView = state.field(editorInfoField) as any;
+    const editor = mdView?.editor as any;
+    const cm: EditorView | undefined =
+      editor?.cm ?? editor?.cmEditor ?? editor?.cm6;
+    if (cm && typeof (cm as any).dispatch === "function") return cm;
+    return null;
+  } catch {
+    return null;
+  }
 };
 
 // === Text color helpers ===
@@ -71,42 +90,24 @@ export const NOTION_BG_COLOR_NAMES: string[] = [
   ...Object.keys(NOTION_BG_COLOR_MAP),
 ];
 
-// Apply or remove text color by wrapping selection in a span with inline style.
-// If the current selection is already wrapped by <span style="color:...">, clicking the same color toggles it off.
-export const setTextColor = (state: EditorState, colorHex: string | null) => {
-  const editor = getEditorFromState(state);
-  if (!editor) return;
+// Apply or remove text color via CM6 decorations and colorRanges state.
+// This no longer mutates the underlying markdown with HTML; it only updates
+// persistent ranges stored in data.json.
+export const setTextColor = (state: EditorState, colorCss: string | null) => {
+  const view = getViewFromState(state);
+  if (!view) return;
 
-  const sel = editor.getSelection();
-  if (!sel) return;
+  // Always read the *current* selection from the live EditorView to avoid
+  // mismatches with the captured CM6 state used to create the toolbar.
+  const sel = view.state.selection.main;
+  if (sel.empty) return;
 
-  const spanRegex = /^<span\s+style=["']color:\s*([^"';]+)["']>([\s\S]*)<\/span>$/i;
-  const match = sel.match(spanRegex);
+  const from = sel.from;
+  const to = sel.to;
 
-  // Remove color (unwrap) if requested
-  if (colorHex === null) {
-    if (match) {
-      editor.replaceSelection(match[2]);
-    }
-    return;
-  }
-
-  // If selection already has a color span, update or toggle off if same color
-  if (match) {
-    const currentColor = match[1].trim();
-    const inner = match[2];
-    if (currentColor.toLowerCase() === colorHex.toLowerCase()) {
-      // Toggle off
-      editor.replaceSelection(inner);
-    } else {
-      // Replace color
-      editor.replaceSelection(`<span style=\"color:${colorHex}\">${inner}</span>`);
-    }
-    return;
-  }
-
-  // Otherwise, wrap selection
-  editor.replaceSelection(`<span style=\"color:${colorHex}\">${sel}</span>`);
+  view.dispatch({
+    effects: setTextColorEffect.of({ from, to, color: colorCss }),
+  });
 };
 
 export const setTextColorByName = (state: EditorState, name: string) => {
@@ -115,33 +116,20 @@ export const setTextColorByName = (state: EditorState, name: string) => {
   if (hex) setTextColor(state, hex);
 };
 
-// Apply or remove background highlight using <mark style="background-color:..."></mark>
-export const setBgColor = (state: EditorState, colorHex: string | null) => {
-  const editor = getEditorFromState(state);
-  if (!editor) return;
-  const sel = editor.getSelection();
-  if (!sel) return;
+// Apply or remove background highlight via CM6 decorations and colorRanges.
+export const setBgColor = (state: EditorState, colorCss: string | null) => {
+  const view = getViewFromState(state);
+  if (!view) return;
 
-  const markRegex = /^<(?:mark|span)\s+style=["']background-color:\s*([^"';]+)["']>([\s\S]*)<\/(?:mark|span)>$/i;
-  const match = sel.match(markRegex);
+  const sel = view.state.selection.main;
+  if (sel.empty) return;
 
-  if (colorHex === null) {
-    if (match) editor.replaceSelection(match[2]);
-    return;
-  }
+  const from = sel.from;
+  const to = sel.to;
 
-  if (match) {
-    const currentColor = match[1].trim();
-    const inner = match[2];
-    if (currentColor.toLowerCase() === colorHex.toLowerCase()) {
-      editor.replaceSelection(inner);
-    } else {
-      editor.replaceSelection(`<mark style=\"background-color:${colorHex}\">${inner}</mark>`);
-    }
-    return;
-  }
-
-  editor.replaceSelection(`<mark style=\"background-color:${colorHex}\">${sel}</mark>`);
+  view.dispatch({
+    effects: setBgColorEffect.of({ from, to, color: colorCss }),
+  });
 };
 
 export const setBgColorByName = (state: EditorState, name: string) => {

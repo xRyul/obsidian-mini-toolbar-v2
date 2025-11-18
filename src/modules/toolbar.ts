@@ -74,11 +74,13 @@ const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
           .onClick(() => {}),
       );
 
-    if (isMultiLineSelection) {
-      toolbar.addSmallButton((btn) =>
-        btn.setIcon("highlighter").onClick(() => markText(app)),
-      );
-    }
+    // Highlighter button for multi-line selections removed per user request
+    // Previously:
+    // if (isMultiLineSelection) {
+    //   toolbar.addSmallButton((btn) =>
+    //     btn.setIcon("highlighter").onClick(() => markText(app)),
+    //   );
+    // }
 
     return toolbar;
   };
