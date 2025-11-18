@@ -1,0 +1,45 @@
+.cm-mini-toolbar {
+  width: auto;
+  height: auto;
+  padding: 3px;
+  display: flex;
+  user-select: none;
+  border-radius: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: var(--layer-menu);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  //max-width: 200px;
+
+  & button {
+    margin: 2px;
+    border: none;
+    display: flex;
+    cursor: pointer;
+    padding: 5px;
+    box-shadow: none;
+    position: relative;
+    border-radius: 3px;
+    font-size: var(--editor-font-size);
+    background-color: var(--background-primary-alt);
+  }
+
+  .mini-toolbar-icon-with-text {
+    padding: 0;
+    margin-left: 6px;
+    margin-bottom: -6px;
+    margin-right: -2px;
+  }
+
+  .mini-toolbar-highlight-icon {
+    padding: 0;
+    margin-bottom: -6px;
+  }
+
+  .mini-toolbar-icon-with-icon {
+    padding: 0;
+    margin-bottom: -6px;
+  }
+}

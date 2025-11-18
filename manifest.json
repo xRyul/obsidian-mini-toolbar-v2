@@ -1,0 +1,10 @@
+{
+	"id": "mini-toolbar",
+	"name": "Mini Toolbar",
+	"version": "0.0.3",
+	"minAppVersion": "0.15.0",
+	"description": "mini context toolbar in editor",
+	"author": "AidenLx & Boninall",
+	"authorUrl": "https://github.com/Quorafind",
+	"isDesktopOnly": true
+}
