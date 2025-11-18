@@ -11,4 +11,4 @@ export interface Tooltip {
   create: (containerEl: HTMLElement) => ToolBar;
 }
 
-export const MiniToolbarEvtName = "editor-mini-toolbar";
+export const MiniToolbarEvtName = "editor-mini-toolbar-v2";

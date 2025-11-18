@@ -1,5 +1,5 @@
 {
-  "name": "mini-toolbar",
+  "name": "mini-toolbar-v2",
   "version": "0.0.3",
   "description": "mini context toolbar in editor",
   "main": "",
@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "cross-env BUILD=dev node esbuild.js",
-    "build": "npm run bumpversion && cross-env BUILD=production node esbuild.js",
+    "build": "npm run bumpversion && cross-env BUILD=production node esbuild.js && node deploy-to-vault.js",
     "bumpversion": "node version-bump.mjs && git add manifest.json versions.json",
     "prettier": " prettier --write 'src/**/*.+(ts|tsx|json|html|css)' ",
     "eslint": "eslint . --ext .ts,.tsx --fix",

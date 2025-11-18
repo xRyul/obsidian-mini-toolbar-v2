@@ -141,9 +141,9 @@ class SmallButton extends BaseComponent implements SBtnDef {
   }
 
   setDropdownText(state: EditorState): this {
-    const textDiv = this.button.buttonEl.createDiv("mini-toolbar-text");
+    const textDiv = this.button.buttonEl.createDiv("mini-toolbar-v2-text");
     const iconDiv = this.button.buttonEl.createDiv(
-      "mini-toolbar-icon-with-text",
+      "mini-toolbar-v2-icon-with-text",
     );
     setIcon(iconDiv, "chevron-down");
 
@@ -157,10 +157,10 @@ class SmallButton extends BaseComponent implements SBtnDef {
 
   setDropdownIcon(): this {
     const highlightIconDiv = this.button.buttonEl.createDiv(
-      "mini-toolbar-highlight-icon",
+      "mini-toolbar-v2-highlight-icon",
     );
     const iconDiv = this.button.buttonEl.createDiv(
-      "mini-toolbar-icon-with-icon",
+      "mini-toolbar-v2-icon-with-icon",
     );
     setIcon(highlightIconDiv, "highlighter");
     setIcon(iconDiv, "chevron-down");
@@ -265,7 +265,7 @@ export class ToolBar extends Component implements ToolBarDef {
   constructor(container: HTMLElement) {
     super();
     this.dom = container.createDiv(
-      { cls: "cm-mini-toolbar" },
+      { cls: "cm-mini-toolbar-v2" },
       (el) => (el.style.position = "absolute"),
     );
     this.smallBtnContainer = this.dom;

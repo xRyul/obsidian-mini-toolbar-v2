@@ -61,8 +61,8 @@ const isProd = process.env.BUILD === "production";
       define: {
         "process.env.NODE_ENV": JSON.stringify(process.env.BUILD),
       },
-      outfile: "main.js",
-      plugins: [lessLoader(), renamePlugin],
+      outfile: "build/main.js",
+      plugins: [lessLoader(), renamePlugin, copyManifest],
     });
   } catch (err) {
     console.error(err);
