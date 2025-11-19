@@ -6,7 +6,7 @@ import {
   StateField,
 } from "@codemirror/state";
 import { Decoration, DecorationSet, EditorView } from "@codemirror/view";
-import { editorInfoField } from "obsidian";
+import { editorInfoField, editorViewField } from "obsidian";
 
 export interface ColorRange {
   from: number;
@@ -62,6 +62,39 @@ const EMPTY_FILE_DATA: FileColorData = { text: [], bg: [], underline: [] };
 const cloneColorRanges = (ranges: ColorRange[]): ColorRange[] =>
   ranges.map((r) => ({ ...r }));
 const cloneRanges = (ranges: Range[]): Range[] => ranges.map((r) => ({ ...r }));
+
+const clampColorRangesToDoc = (ranges: ColorRange[], len: number): ColorRange[] => {
+  if (!ranges.length) return ranges;
+  const out: ColorRange[] = [];
+  for (const r of ranges) {
+    const from = Math.max(0, Math.min(len, r.from));
+    const to = Math.max(0, Math.min(len, r.to));
+    if (from < to) out.push({ from, to, color: r.color });
+  }
+  return out;
+};
+const clampRangesToDoc = (ranges: Range[], len: number): Range[] => {
+  if (!ranges.length) return ranges;
+  const out: Range[] = [];
+  for (const r of ranges) {
+    const from = Math.max(0, Math.min(len, r.from));
+    const to = Math.max(0, Math.min(len, r.to));
+    if (from < to) out.push({ from, to });
+  }
+  return out;
+};
+
+const isMainEditorView = (state: EditorState): boolean => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mdView = state.field(editorInfoField) as any;
+    const main: EditorView | undefined = mdView?.editor?.cm ?? mdView?.editor?.cmEditor ?? mdView?.editor?.cm6;
+    const current = state.field(editorViewField) as EditorView;
+    return !!(main && current && main === current);
+  } catch {
+    return true;
+  }
+};
 
 const mapColorRanges = (
   ranges: ColorRange[],
@@ -264,10 +297,26 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
         path = null;
       }
 
+      // In embedded editors (e.g., Live Preview table cells), don't mirror full-file
+      // ranges into the fragment doc; it doesn't share coordinates. Keep decorations off.
+      if (!isMainEditorView(state)) {
+        return {
+          text: [],
+          bg: [],
+          underline: [],
+          decorations: Decoration.none,
+          filePath: path,
+        };
+      }
+
       const stored = (path && storage.load(path)) || EMPTY_FILE_DATA;
-      const text = cloneColorRanges(stored.text ?? []);
-      const bg = cloneColorRanges(stored.bg ?? []);
-      const underline = cloneRanges(stored.underline ?? []);
+      // Clamp any persisted ranges to this doc's length. This protects
+      // embedded editors (e.g., table cell editors) whose doc is only a fragment
+      // of the full file.
+      const docLen = state.doc.length;
+      const text = clampColorRangesToDoc(cloneColorRanges(stored.text ?? []), docLen);
+      const bg = clampColorRangesToDoc(cloneColorRanges(stored.bg ?? []), docLen);
+      const underline = clampRangesToDoc(cloneRanges(stored.underline ?? []), docLen);
       const decorations = buildDecorations(state, text, bg, underline);
       return { text, bg, underline, decorations, filePath: path };
     },
@@ -290,6 +339,12 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
         }
       }
 
+      // Ensure ranges stay within current doc length before building decorations
+      const docLen = tr.state.doc.length;
+      text = clampColorRangesToDoc(text, docLen);
+      bg = clampColorRangesToDoc(bg, docLen);
+      underline = clampRangesToDoc(underline, docLen);
+
       const decorations = buildDecorations(tr.state, text, bg, underline);
 
       let path: string | null = filePath;
@@ -302,7 +357,9 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
         // ignore
       }
 
-      if (path) {
+      // Only persist when operating on the main file editor view to avoid
+      // clobbering the full-file ranges from embedded editors (e.g., table cells).
+      if (path && isMainEditorView(tr.state)) {
         storage.save(path, { text, bg, underline });
       }
 

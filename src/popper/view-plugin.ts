@@ -31,6 +31,27 @@ const getRectFromXY = (x = 0, y = 0): ClientRectObject => ({
   x,
   y,
 });
+
+const isEmbeddedEditorView = (view: EditorView): boolean => {
+  const el = view.dom as HTMLElement;
+  // Known wrapper for Obsidian Live Preview table cell editors.
+  // Keep the selector narrow to avoid false positives.
+  return !!el.closest(".cm-table-widget");
+};
+
+const isSelectionInsideEmbeddedChild = (view: EditorView): boolean => {
+  try {
+    const sel = (view.root as Document | ShadowRoot).getSelection?.() || document.getSelection();
+    const node = sel?.anchorNode as Node | null;
+    if (!node) return false;
+    const el = (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : (node.parentElement)) as HTMLElement | null;
+    if (!el) return false;
+    // If selection lives inside a table widget, treat it as embedded.
+    return !!el.closest(".cm-table-widget");
+  } catch {
+    return false;
+  }
+};
 type VirtualElement = {
   getBoundingClientRect(): ClientRectObject;
   contextElement?: Element;
@@ -61,6 +82,7 @@ class ViewPluginClass implements PluginValue {
   containerEl = this.view.dom;
   virtualEl: VirtualElement & { rect: ClientRectObject };
   toolbar: ToolBar | null = null;
+  embedded: boolean;
 
   get workspace() {
     return this.view.state.field(editorInfoField).app.workspace;
@@ -78,6 +100,7 @@ class ViewPluginClass implements PluginValue {
 
   constructor(readonly view: EditorView) {
     this.tooltipInfo = view.state.facet(showTooltip);
+    this.embedded = isEmbeddedEditorView(view);
     this.virtualEl = {
       rect: initialRect,
       getBoundingClientRect() {
@@ -93,12 +116,14 @@ class ViewPluginClass implements PluginValue {
   }
 
   shouldRemoveToolbar(input?: Tooltip | null): boolean {
+    if (this.embedded) return true;
     const info = input ?? this.tooltipInfo;
     // if without selection and no menu present
     return !(info?.end || this.editorMenu.currMenu);
   }
 
   onEditorMenuOpen(menu: Menu) {
+    if (this.embedded) return;
     if (!this.editorMenu.currMenu) {
       this.editorMenu.currMenu = menu;
       if (this.cachedRefRect) this.computePosition(this.cachedRefRect);
@@ -120,6 +145,7 @@ class ViewPluginClass implements PluginValue {
   }
 
   createToolbar(input?: Tooltip): void {
+    if (this.embedded) return;
     const info = input ?? this.tooltipInfo;
     if (!info) return;
     this.removeToolbar();
@@ -145,6 +171,10 @@ class ViewPluginClass implements PluginValue {
   }
 
   update(update: ViewUpdate) {
+    if (this.embedded || isSelectionInsideEmbeddedChild(this.view)) {
+      if (this.toolbar) this.removeToolbar();
+      return;
+    }
     let input = update.state.facet(showTooltip);
     let updated = input !== this.tooltipInfo && !equal(input, this.tooltipInfo);
     if (updated) {
@@ -174,6 +204,7 @@ class ViewPluginClass implements PluginValue {
 
   cachedRefRect: ClientRectObject | null = null;
   readFromDOM = (): void => {
+    if (this.embedded) return;
     if (this.tooltipInfo) {
       let { start, end } = this.tooltipInfo;
       if (end && start === end) {
@@ -202,7 +233,7 @@ class ViewPluginClass implements PluginValue {
   };
 
   async computePosition(refRect: ClientRectObject): Promise<void> {
-    if (!this.toolbar) return;
+    if (this.embedded || !this.toolbar) return;
     this.virtualEl.rect = refRect;
     const { padding } = this.view.state.facet(tooltipConfig);
     const { x, y } = await computePosition(this.virtualEl, this.toolbar.dom, {
@@ -225,6 +256,7 @@ class ViewPluginClass implements PluginValue {
   }
 
   maybeMeasure() {
+    if (this.embedded) return;
     if (this.view.inView && this.toolbar)
       this.view.requestMeasure({ read: this.readFromDOM });
     if (this.inView != this.view.inView) {

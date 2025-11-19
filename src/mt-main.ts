@@ -39,6 +39,10 @@ export default class MiniToolbar extends Plugin {
 
     // Reading mode: apply the same colors using a markdown postprocessor.
     this.registerMarkdownPostProcessor((el, ctx) => {
+      // IMPORTANT: Do not touch Live Preview (editor) islands like tables.
+      // They live under .markdown-source-view and mutating them breaks editing.
+      if (el.closest(".markdown-source-view")) return;
+
       const data = this.colorData[ctx.sourcePath];
       if (!data) return;
       this.applyColorsToReadingView(el, data);
