@@ -13,20 +13,20 @@
   <img src="https://github.com/user-attachments/assets/31c42842-d0ea-4990-b8ec-0bb6236dedac" alt="Demo Screenshot" width="600">
 </p>
 
-
-## ✨ Features
-
 This plugin adds toolbar that appears when you select text, offering quick access to formatting options.
 
-**V2 Improvements:**
-- 🎨 **Text Color**: Change the color of your selected text.
-- 🖌️ **Background Color**: Highlight text with custom background colors.
-- 🖋️ Multi-line highlighter removed.
+
+## Features:
+
+- 🎨 Change the color of your $\textcolor{yellow}{\text{selected}}$ text.
+- 🖌️ Highlight text with <img src="assets/highlight-example.svg" height="24" style="vertical-align: middle;"/> colors.
+
 - <details>
   <summary><strong>Limitations / Known Behaviors</strong></summary>
   - No Reading Mode support  </br>
   - Styles are plugin‑local, not markdown. Colors and underline are not written into the markdown file. If you open the note in another application or disable this plugin, the text will appear unstyled. This is intentional to keep files clean.  </br>
   - Embedded / fragment editors (tables, etc.). The mini toolbar is suppressed. </br>
+  -  Multi-line highlighter removed.
 </details>
 
 ## Credits:

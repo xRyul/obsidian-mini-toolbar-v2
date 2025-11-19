@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="30" viewBox="0 0 140 30">
+  <rect x="0" y="0" width="140" height="30" rx="4" ry="4" fill="#FAEBDD"/>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14">
+    <tspan fill="#D9730D">custom background</tspan>
+  </text>
+</svg>
