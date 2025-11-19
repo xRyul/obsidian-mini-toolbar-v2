@@ -1,14 +1,28 @@
-# mini-toolbar-v2
+<h1 align="center">Obsidian Mini Toolbar V2</h1>
 
-This plugin adds toolbar with basic text manipulation options at the top your text selection. 
-![Obsidian_7ef8IePTmr](https://github.com/user-attachments/assets/31c42842-d0ea-4990-b8ec-0bb6236dedac)
+<p align="center">
+  <img src="https://img.shields.io/github/package-json/v/xRyul/obsidian-mini-toolbar-v2?color=6E56CF&style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/github/license/xRyul/obsidian-mini-toolbar-v2?style=for-the-badge" alt="License">
+</p>
 
-## How this plugin differes from original:
-- Adds option to change color text.
-- Adds option to change background color.
-- Multi-line highlighter removed.
+<p align="center">
+  <em>A context-aware toolbar for text manipulation in Obsidian.</em>
+</p>
 
-<details>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/31c42842-d0ea-4990-b8ec-0bb6236dedac" alt="Demo Screenshot" width="600">
+</p>
+
+
+## ✨ Features
+
+This plugin adds toolbar that appears when you select text, offering quick access to formatting options.
+
+**V2 Improvements:**
+- 🎨 **Text Color**: Change the color of your selected text.
+- 🖌️ **Background Color**: Highlight text with custom background colors.
+- 🖋️ Multi-line highlighter removed.
+- <details>
   <summary><strong>Limitations / Known Behaviors</strong></summary>
   - No Reading Mode support  </br>
   - Styles are plugin‑local, not markdown. Colors and underline are not written into the markdown file. If you open the note in another application or disable this plugin, the text will appear unstyled. This is intentional to keep files clean.  </br>
