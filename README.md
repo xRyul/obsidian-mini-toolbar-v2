@@ -1,8 +1,8 @@
 <h1 align="center">Obsidian Mini Toolbar V2</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/github/package-json/v/xRyul/obsidian-mini-toolbar-v2?color=6E56CF&style=for-the-badge" alt="Version">
-  <img src="https://img.shields.io/github/license/xRyul/obsidian-mini-toolbar-v2?style=for-the-badge" alt="License">
+  <img src="https://img.shields.io/badge/version-0.0.1-6E56CF?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License">
 </p>
 
 <p align="center">
