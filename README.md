@@ -36,10 +36,13 @@ This plugin adds toolbar that appears when you select text, offering quick acces
 ### Install via BRAT 
 
 1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat) 
-2. `CMD/CTRL+P` and type: **Add Beta plugin**
+2. `CMD/CTRL+P` and type: **Add Beta plugin**  
+   <img width="640" alt="image" src="https://github.com/user-attachments/assets/f9703a00-b7bf-468e-abd0-eedd38aaff18" />
+
 4. In new popup window add plugin URL: `https://github.com/xRyul/obsidian-mini-toolbar-v2`
+   <img width="640" alt="image" src="https://github.com/user-attachments/assets/fa8d871e-d3ef-4628-bf49-19c51a274f24" />
+
 5. Click **Add Plugin**
-6. Go to **Settings** → **Community Plugins** and enable **Obsidian Mini Toolbar V2**
 
 ### Manual Installation
 
