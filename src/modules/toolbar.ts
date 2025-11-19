@@ -35,6 +35,7 @@ import {
   NOTION_BG_COLOR_NAMES,
   NOTION_BG_COLOR_MAP,
   setBgColorByName,
+  toggleUnderline,
 } from "./defaultCommand";
 
 const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
@@ -61,6 +62,9 @@ const getCursorTooltips = (state: EditorState, app: App): Tooltip | null => {
       )
       .addSmallButton((btn) =>
         btn.setIcon("strikethrough").onClick(() => strikethroughText(app)),
+      )
+      .addSmallButton((btn) =>
+        btn.setIcon("underline").setTooltip("Underline").onClick(() => toggleUnderline(state)),
       )
       // Text color dropdown (Notion-like colors)
       .addSmallButton((btn) =>

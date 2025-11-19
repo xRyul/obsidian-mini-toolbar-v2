@@ -6,6 +6,7 @@ import {
   ColorStorage,
   createColorExtension,
   FileColorData,
+  Range,
 } from "./modules/colorRanges";
 
 export default class MiniToolbar extends Plugin {
@@ -47,7 +48,8 @@ export default class MiniToolbar extends Plugin {
   private applyColorsToReadingView(containerEl: HTMLElement, data: FileColorData) {
     const textRanges = data.text ?? [];
     const bgRanges = data.bg ?? [];
-    if (!textRanges.length && !bgRanges.length) return;
+    const underlineRanges: Range[] = data.underline ?? [];
+    if (!textRanges.length && !bgRanges.length && !underlineRanges.length) return;
 
     const doc = containerEl.ownerDocument || document;
     const walker = doc.createTreeWalker(
@@ -70,6 +72,12 @@ export default class MiniToolbar extends Plugin {
       }
       return null;
     };
+    const hasUnderlineAt = (ranges: Range[], pos: number): boolean => {
+      for (const r of ranges) {
+        if (r.from <= pos && pos < r.to) return true;
+      }
+      return false;
+    };
 
     let current: Node | null;
     while ((current = walker.nextNode())) {
@@ -84,7 +92,8 @@ export default class MiniToolbar extends Plugin {
 
       const relevantText = textRanges.filter((r) => r.to > start && r.from < end);
       const relevantBg = bgRanges.filter((r) => r.to > start && r.from < end);
-      if (!relevantText.length && !relevantBg.length) continue;
+      const relevantUl = underlineRanges.filter((r) => r.to > start && r.from < end);
+      if (!relevantText.length && !relevantBg.length && !relevantUl.length) continue;
 
       const boundaries = new Set<number>();
       boundaries.add(start);
@@ -94,6 +103,10 @@ export default class MiniToolbar extends Plugin {
         boundaries.add(Math.min(end, r.to));
       }
       for (const r of relevantBg) {
+        boundaries.add(Math.max(start, r.from));
+        boundaries.add(Math.min(end, r.to));
+      }
+      for (const r of relevantUl) {
         boundaries.add(Math.max(start, r.from));
         boundaries.add(Math.min(end, r.to));
       }
@@ -112,13 +125,15 @@ export default class MiniToolbar extends Plugin {
 
         const textColor = findColorAt(relevantText, segFrom);
         const bgColor = findColorAt(relevantBg, segFrom);
+        const underline = hasUnderlineAt(relevantUl, segFrom);
 
-        if (!textColor && !bgColor) {
+        if (!textColor && !bgColor && !underline) {
           fragments.push(doc.createTextNode(slice));
         } else {
           const span = doc.createElement("span");
           if (textColor) span.style.color = textColor;
           if (bgColor) span.style.backgroundColor = bgColor;
+          if (underline) span.style.textDecoration = "underline";
           span.textContent = slice;
           fragments.push(span);
         }

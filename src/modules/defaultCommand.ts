@@ -2,7 +2,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { App, editorInfoField } from "obsidian";
 
-import { setBgColorEffect, setTextColorEffect } from "./colorRanges";
+import { setBgColorEffect, setTextColorEffect, setUnderlineEffect } from "./colorRanges";
 
 export const cutText = (state: EditorState) => {
   const editor = getEditorFromState(state);
@@ -136,4 +136,20 @@ export const setBgColorByName = (state: EditorState, name: string) => {
   if (name === "Default") return setBgColor(state, null);
   const varName = `var(--mtv2-bg-${name.toLowerCase()})`;
   setBgColor(state, varName);
+};
+
+// Toggle underline decoration over the current selection.
+export const toggleUnderline = (state: EditorState, enable?: boolean) => {
+  const view = getViewFromState(state);
+  if (!view) return;
+
+  const sel = view.state.selection.main;
+  if (sel.empty) return;
+
+  const from = sel.from;
+  const to = sel.to;
+
+  view.dispatch({
+    effects: setUnderlineEffect.of({ from, to, enable }),
+  });
 };

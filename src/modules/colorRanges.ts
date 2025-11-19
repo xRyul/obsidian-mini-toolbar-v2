@@ -14,9 +14,15 @@ export interface ColorRange {
   color: string; // CSS color value (hex, var(), etc.)
 }
 
+export interface Range {
+  from: number;
+  to: number;
+}
+
 export interface FileColorData {
   text: ColorRange[];
   bg: ColorRange[];
+  underline?: Range[];
 }
 
 export interface ColorStorage {
@@ -36,26 +42,52 @@ export const setBgColorEffect = StateEffect.define<{
   color: string | null;
 }>();
 
+export const setUnderlineEffect = StateEffect.define<{
+  from: number;
+  to: number;
+  // If provided, set underline to this boolean. If omitted, toggle.
+  enable?: boolean;
+}>();
+
 interface ColorState {
   text: ColorRange[];
   bg: ColorRange[];
+  underline: Range[];
   decorations: DecorationSet;
   filePath: string | null;
 }
 
-const EMPTY_FILE_DATA: FileColorData = { text: [], bg: [] };
+const EMPTY_FILE_DATA: FileColorData = { text: [], bg: [], underline: [] };
 
-const cloneRanges = (ranges: ColorRange[]): ColorRange[] =>
+const cloneColorRanges = (ranges: ColorRange[]): ColorRange[] =>
   ranges.map((r) => ({ ...r }));
+const cloneRanges = (ranges: Range[]): Range[] => ranges.map((r) => ({ ...r }));
 
-const mapRanges = (ranges: ColorRange[], changes: ChangeDesc): ColorRange[] => {
+const mapColorRanges = (
+  ranges: ColorRange[],
+  changes: ChangeDesc,
+): ColorRange[] => {
   if (!ranges.length) return ranges;
   const result: ColorRange[] = [];
   for (const r of ranges) {
-    const from = changes.mapPos(r.from);
-    const to = changes.mapPos(r.to);
+    // Left-inclusive, right-exclusive mapping so typing at the end doesn't extend the style.
+    const from = changes.mapPos(r.from, 1);
+    const to = changes.mapPos(r.to, -1);
     if (from >= to) continue;
     result.push({ from, to, color: r.color });
+  }
+  return result;
+};
+
+const mapRanges = (ranges: Range[], changes: ChangeDesc): Range[] => {
+  if (!ranges.length) return ranges;
+  const result: Range[] = [];
+  for (const r of ranges) {
+    // Left-inclusive, right-exclusive mapping so typing at the end doesn't extend the style.
+    const from = changes.mapPos(r.from, 1);
+    const to = changes.mapPos(r.to, -1);
+    if (from >= to) continue;
+    result.push({ from, to });
   }
   return result;
 };
@@ -89,7 +121,7 @@ const applyColorChange = (
   }
 
   // Sort and merge adjacent same-color ranges
-  next.sort((a, b) => (a.from - b.from) || (a.to - b.to));
+  next.sort((a, b) => a.from - b.from || a.to - b.to);
   const merged: ColorRange[] = [];
   for (const r of next) {
     const last = merged[merged.length - 1];
@@ -102,10 +134,83 @@ const applyColorChange = (
   return merged;
 };
 
+const subtractRange = (ranges: Range[], from: number, to: number): Range[] => {
+  const next: Range[] = [];
+  for (const r of ranges) {
+    if (r.to <= from || r.from >= to) {
+      next.push(r);
+      continue;
+    }
+    if (r.from < from) next.push({ from: r.from, to: from });
+    if (r.to > to) next.push({ from: to, to: r.to });
+  }
+  return next;
+};
+
+const selectionMinusRanges = (
+  ranges: Range[],
+  from: number,
+  to: number,
+): Range[] => {
+  const overlapped = ranges
+    .filter((r) => r.to > from && r.from < to)
+    .sort((a, b) => a.from - b.from);
+  const result: Range[] = [];
+  let cursor = from;
+  for (const r of overlapped) {
+    const s = Math.max(r.from, from);
+    const e = Math.min(r.to, to);
+    if (s > cursor) {
+      result.push({ from: cursor, to: s });
+    }
+    cursor = Math.max(cursor, e);
+  }
+  if (cursor < to) result.push({ from: cursor, to });
+  return result;
+};
+
+const mergeAdjacent = (ranges: Range[]): Range[] => {
+  if (!ranges.length) return ranges;
+  const sorted = [...ranges].sort((a, b) => a.from - b.from || a.to - b.to);
+  const out: Range[] = [];
+  for (const r of sorted) {
+    const last = out[out.length - 1];
+    if (last && last.to >= r.from) {
+      last.to = Math.max(last.to, r.to);
+    } else {
+      out.push({ ...r });
+    }
+  }
+  return out;
+};
+
+const applyUnderlineChange = (
+  ranges: Range[],
+  change: { from: number; to: number; enable?: boolean },
+): Range[] => {
+  const { from, to, enable } = change;
+  if (from >= to) return ranges;
+
+  if (enable === true) {
+    // Set underline ON for [from, to]
+    const next = subtractRange(ranges, from, to);
+    return mergeAdjacent([...next, { from, to }]);
+  }
+  if (enable === false) {
+    // Set underline OFF for [from, to]
+    return subtractRange(ranges, from, to);
+  }
+  // Toggle underline within [from, to]
+  const removed = subtractRange(ranges, from, to);
+  const addSegments = selectionMinusRanges(ranges, from, to);
+  return mergeAdjacent([...removed, ...addSegments]);
+};
+
 const buildDecorations = (
   state: EditorState,
   text: ColorRange[],
   bg: ColorRange[],
+  underline: Range[],
 ): DecorationSet => {
   const ranges: any[] = [];
 
@@ -130,6 +235,17 @@ const buildDecorations = (
     );
   }
 
+  for (const r of underline) {
+    ranges.push(
+      Decoration.mark({
+        attributes: {
+          style:
+            "text-decoration: underline; text-decoration-skip-ink: auto; text-underline-offset: 2px;",
+        },
+      }).range(r.from, r.to),
+    );
+  }
+
   if (!ranges.length) return Decoration.none;
   return Decoration.set(ranges, true);
 };
@@ -149,17 +265,19 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
       }
 
       const stored = (path && storage.load(path)) || EMPTY_FILE_DATA;
-      const text = cloneRanges(stored.text ?? []);
-      const bg = cloneRanges(stored.bg ?? []);
-      const decorations = buildDecorations(state, text, bg);
-      return { text, bg, decorations, filePath: path };
+      const text = cloneColorRanges(stored.text ?? []);
+      const bg = cloneColorRanges(stored.bg ?? []);
+      const underline = cloneRanges(stored.underline ?? []);
+      const decorations = buildDecorations(state, text, bg, underline);
+      return { text, bg, underline, decorations, filePath: path };
     },
     update(value, tr) {
-      let { text, bg, filePath } = value;
+      let { text, bg, underline, filePath } = value;
 
       if (tr.docChanged) {
-        text = mapRanges(text, tr.changes);
-        bg = mapRanges(bg, tr.changes);
+        text = mapColorRanges(text, tr.changes);
+        bg = mapColorRanges(bg, tr.changes);
+        underline = mapRanges(underline, tr.changes);
       }
 
       for (const e of tr.effects) {
@@ -167,10 +285,12 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
           text = applyColorChange(text, e.value);
         } else if (e.is(setBgColorEffect)) {
           bg = applyColorChange(bg, e.value);
+        } else if (e.is(setUnderlineEffect)) {
+          underline = applyUnderlineChange(underline, e.value);
         }
       }
 
-      const decorations = buildDecorations(tr.state, text, bg);
+      const decorations = buildDecorations(tr.state, text, bg, underline);
 
       let path: string | null = filePath;
       try {
@@ -183,10 +303,10 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
       }
 
       if (path) {
-        storage.save(path, { text, bg });
+        storage.save(path, { text, bg, underline });
       }
 
-      return { text, bg, decorations, filePath: path };
+      return { text, bg, underline, decorations, filePath: path };
     },
     provide: (field) =>
       EditorView.decorations.from(field, (val: ColorState) => val.decorations),
