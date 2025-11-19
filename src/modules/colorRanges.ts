@@ -55,6 +55,8 @@ interface ColorState {
   underline: Range[];
   decorations: DecorationSet;
   filePath: string | null;
+  isMain: boolean;
+  needsReload: boolean;
 }
 
 const EMPTY_FILE_DATA: FileColorData = { text: [], bg: [], underline: [] };
@@ -86,11 +88,10 @@ const clampRangesToDoc = (ranges: Range[], len: number): Range[] => {
 
 const isMainEditorView = (state: EditorState): boolean => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mdView = state.field(editorInfoField) as any;
-    const main: EditorView | undefined = mdView?.editor?.cm ?? mdView?.editor?.cmEditor ?? mdView?.editor?.cm6;
-    const current = state.field(editorViewField) as EditorView;
-    return !!(main && current && main === current);
+    const view = state.field(editorViewField) as EditorView | undefined;
+    if (!view) return true;
+    const el = view.dom as HTMLElement | null;
+    return !el?.closest?.(".cm-table-widget");
   } catch {
     return true;
   }
@@ -297,15 +298,19 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
         path = null;
       }
 
+      const isMain = isMainEditorView(state);
+
       // In embedded editors (e.g., Live Preview table cells), don't mirror full-file
       // ranges into the fragment doc; it doesn't share coordinates. Keep decorations off.
-      if (!isMainEditorView(state)) {
+      if (!isMain) {
         return {
           text: [],
           bg: [],
           underline: [],
           decorations: Decoration.none,
           filePath: path,
+          isMain,
+          needsReload: !!path,
         };
       }
 
@@ -318,52 +323,113 @@ export const createColorExtension = (storage: ColorStorage): Extension => {
       const bg = clampColorRangesToDoc(cloneColorRanges(stored.bg ?? []), docLen);
       const underline = clampRangesToDoc(cloneRanges(stored.underline ?? []), docLen);
       const decorations = buildDecorations(state, text, bg, underline);
-      return { text, bg, underline, decorations, filePath: path };
+      return { text, bg, underline, decorations, filePath: path, isMain, needsReload: false };
     },
     update(value, tr) {
-      let { text, bg, underline, filePath } = value;
-
-      if (tr.docChanged) {
-        text = mapColorRanges(text, tr.changes);
-        bg = mapColorRanges(bg, tr.changes);
-        underline = mapRanges(underline, tr.changes);
-      }
-
-      for (const e of tr.effects) {
-        if (e.is(setTextColorEffect)) {
-          text = applyColorChange(text, e.value);
-        } else if (e.is(setBgColorEffect)) {
-          bg = applyColorChange(bg, e.value);
-        } else if (e.is(setUnderlineEffect)) {
-          underline = applyUnderlineChange(underline, e.value);
-        }
-      }
-
-      // Ensure ranges stay within current doc length before building decorations
-      const docLen = tr.state.doc.length;
-      text = clampColorRangesToDoc(text, docLen);
-      bg = clampColorRangesToDoc(bg, docLen);
-      underline = clampRangesToDoc(underline, docLen);
-
-      const decorations = buildDecorations(tr.state, text, bg, underline);
-
+      let { text, bg, underline, filePath, isMain, needsReload } = value;
       let path: string | null = filePath;
+      let pathChanged = false;
+      let dirty = false;
+
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mdView = tr.state.field(editorInfoField) as any;
         const file = mdView?.file;
         if (file && typeof file.path === "string") path = file.path;
+        else path = null;
       } catch {
-        // ignore
+        path = null;
       }
 
-      // Only persist when operating on the main file editor view to avoid
-      // clobbering the full-file ranges from embedded editors (e.g., table cells).
-      if (path && isMainEditorView(tr.state)) {
+      const isMainView = isMainEditorView(tr.state);
+      const docLen = tr.state.doc.length;
+
+      if (path !== filePath) {
+        // Persist previous file's data before switching contexts when we were on the main view.
+        if (filePath && isMain) {
+          storage.save(filePath, { text, bg, underline });
+        }
+
+        if (path && isMainView) {
+          const stored = storage.load(path) || EMPTY_FILE_DATA;
+          text = clampColorRangesToDoc(
+            cloneColorRanges(stored.text ?? []),
+            docLen,
+          );
+          bg = clampColorRangesToDoc(
+            cloneColorRanges(stored.bg ?? []),
+            docLen,
+          );
+          underline = clampRangesToDoc(
+            cloneRanges(stored.underline ?? []),
+            docLen,
+          );
+          needsReload = false;
+        } else {
+          text = [];
+          bg = [];
+          underline = [];
+          needsReload = !!path;
+        }
+        pathChanged = true;
+      }
+
+      // If we couldn't load earlier (e.g., waiting for main editor view), try again once we're on the main view.
+      if (!pathChanged && needsReload && path && isMainView) {
+        const stored = storage.load(path) || EMPTY_FILE_DATA;
+        text = clampColorRangesToDoc(cloneColorRanges(stored.text ?? []), docLen);
+        bg = clampColorRangesToDoc(cloneColorRanges(stored.bg ?? []), docLen);
+        underline = clampRangesToDoc(cloneRanges(stored.underline ?? []), docLen);
+        needsReload = false;
+      }
+
+      if (!pathChanged && isMainView && tr.docChanged) {
+        text = mapColorRanges(text, tr.changes);
+        bg = mapColorRanges(bg, tr.changes);
+        underline = mapRanges(underline, tr.changes);
+        dirty = true;
+      }
+
+      if (isMainView) {
+        for (const e of tr.effects) {
+          if (e.is(setTextColorEffect)) {
+            text = applyColorChange(text, e.value);
+            dirty = true;
+          } else if (e.is(setBgColorEffect)) {
+            bg = applyColorChange(bg, e.value);
+            dirty = true;
+          } else if (e.is(setUnderlineEffect)) {
+            underline = applyUnderlineChange(underline, e.value);
+            dirty = true;
+          }
+        }
+      }
+
+      // Ensure ranges stay within current doc length before building decorations
+      const clampedText = clampColorRangesToDoc(text, docLen);
+      const clampedBg = clampColorRangesToDoc(bg, docLen);
+      const clampedUnderline = clampRangesToDoc(underline, docLen);
+      text = clampedText;
+      bg = clampedBg;
+      underline = clampedUnderline;
+
+      const decorations = isMainView
+        ? buildDecorations(tr.state, text, bg, underline)
+        : Decoration.none;
+
+      if (path && isMainView && dirty) {
         storage.save(path, { text, bg, underline });
       }
 
-      return { text, bg, underline, decorations, filePath: path };
+      return {
+        text,
+        bg,
+        underline,
+        decorations,
+        filePath: path,
+        isMain: isMainView,
+        needsReload,
+      };
     },
     provide: (field) =>
       EditorView.decorations.from(field, (val: ColorState) => val.decorations),

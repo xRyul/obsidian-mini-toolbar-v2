@@ -7,13 +7,7 @@ import {
 import { ClientRectObject } from "@floating-ui/core";
 import { computePosition, flip, offset } from "@floating-ui/dom";
 import equal from "fast-deep-equal";
-import {
-  editorInfoField,
-  editorViewField,
-  EventRef,
-  Menu,
-  Platform,
-} from "obsidian";
+import { editorInfoField, EventRef, Menu, Platform } from "obsidian";
 
 import { ToolBar } from "../modules/toolbar";
 import { tooltipConfig } from "./config";
