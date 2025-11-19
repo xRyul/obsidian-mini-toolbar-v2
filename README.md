@@ -21,7 +21,7 @@ This plugin adds toolbar that appears when you select text, offering quick acces
 - 🎨 Change the color of your selected text.
 - 🖌️ Highlight text with <img src="assets/highlight-example.svg" height="20" style="vertical-align: middle;"/> colors.
 
-- <details>
+ <details>
   <summary><strong>Limitations / Known Behaviors</strong></summary>
   - No Reading Mode support  </br>
   - Styles are plugin‑local, not markdown. Colors and underline are not written into the markdown file. If you open the note in another application or disable this plugin, the text will appear unstyled. This is intentional to keep files clean.  </br>
