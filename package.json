@@ -16,7 +16,7 @@
     "release": "release-it"
   },
   "keywords": [],
-  "author": "AidenLx & Boninall",
+  "author": "xRyul",
   "license": "MIT",
   "devDependencies": {
     "@aidenlx/obsidian-icon-shortcodes": "^0.5.1",
