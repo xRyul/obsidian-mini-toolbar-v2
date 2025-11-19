@@ -1,7 +1,7 @@
 {
 	"id": "mini-toolbar-v2",
 	"name": "mini-toolbar-v2",
-	"version": "0.0.3",
+	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
 	"description": "mini context toolbar in editor",
 	"author": "xRyul",
