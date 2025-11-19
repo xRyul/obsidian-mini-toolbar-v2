@@ -18,8 +18,8 @@ This plugin adds toolbar that appears when you select text, offering quick acces
 
 ## Features:
 
-- 🎨 Change the color of your $$\textcolor{yellow}{\text{selected}}$$ text.
-- 🖌️ Highlight text with <img src="assets/highlight-example.svg" height="24" style="vertical-align: middle;"/> colors.
+- 🎨 Change the color of your selected text.
+- 🖌️ Highlight text with <img src="assets/highlight-example.svg" height="20" style="vertical-align: middle;"/> colors.
 
 - <details>
   <summary><strong>Limitations / Known Behaviors</strong></summary>
