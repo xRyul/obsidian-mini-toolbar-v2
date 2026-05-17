@@ -3,8 +3,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const projectRoot = __dirname;
-const vaultPluginsPath = 'C:\\Users\\daniel\\Developer\\Obsidian Plugins\\Plugin-Testing-Vault\\.obsidian\\plugins';
+const projectRoot = path.resolve(__dirname, '..');
+const vaultPluginsPath =
+  process.env.OBSIDIAN_VAULT_PLUGINS_PATH ||
+  process.env.OBSIDIAN_VAULT_PLUGINS_DIR ||
+  process.env.OBSIDIAN_PLUGINS_DIR ||
+  (process.platform === 'win32'
+    ? 'D:\\plugin-testing-vault\\.obsidian\\plugins'
+    : '/mnt/d/plugin-testing-vault/.obsidian/plugins');
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {

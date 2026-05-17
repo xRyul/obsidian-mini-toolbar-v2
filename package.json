@@ -1,6 +1,7 @@
 {
   "name": "mini-toolbar-v2",
   "version": "0.0.2",
+  "packageManager": "pnpm@8.15.9",
   "description": "mini context toolbar in editor",
   "main": "",
   "types": "src/typings/index.d.ts",
@@ -9,7 +10,8 @@
   ],
   "scripts": {
     "dev": "cross-env BUILD=dev node esbuild.js",
-    "build": "npm run bumpversion && cross-env BUILD=production node esbuild.js && node deploy-to-vault.js",
+    "build": "pnpm run bumpversion && cross-env BUILD=production node esbuild.js",
+    "build:copy": "pnpm run build && node scripts/copy-to-testing-vault.cjs",
     "bumpversion": "node version-bump.mjs && git add manifest.json versions.json",
     "prettier": " prettier --write 'src/**/*.+(ts|tsx|json|html|css)' ",
     "eslint": "eslint . --ext .ts,.tsx --fix",
@@ -60,14 +62,14 @@
   "release-it": {
     "hooks": {
       "before:init": [
-        "npm run eslint"
+        "pnpm run eslint"
       ],
       "after:bump": [
         "json -I -f manifest.json -e \"this.version='${version}'\"",
         "json -I -f versions.json -e \"this['${version}']='$(cat manifest.json | json minAppVersion)'\"",
         "sed -i '' \"s/available for Obsidian v.*$/available for Obsidian v$(cat manifest.json | json minAppVersion)+./\" README.md",
         "git add .",
-        "npm run build"
+        "pnpm run build"
       ],
       "after:release": "echo Successfully released ${name} v${version} to ${repo.repository}."
     },
